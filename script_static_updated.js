@@ -274,7 +274,7 @@ function submitEvaluation(category) {
 }
 
 // Google Apps Script endpoint configuration
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxDPp-Iyd1JKHbhsuuHmkbXK9hZViDXJ1TsrapktPWVW3QXzT5obkYzkJcOBWKn8wou/exec';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyvE50_qU-qJR0ibaWV6HzTIm2TPidBwb7Jw1tFeLXazCMG9Uk-P499zP4pLUYWhKe1/exec';
 
 // Check if current pair is complete and auto-submit to backend
 async function checkAndSubmitCompletedPair() {
