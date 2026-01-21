@@ -71,7 +71,7 @@ function showCategory(category) {
 }
 
 // Save clutter responses for current pair
-function saveClutterResponses() {
+async function saveClutterResponses() {
     if (!currentPairId) {
         alert('No pair loaded for evaluation');
         return;
@@ -110,11 +110,14 @@ function saveClutterResponses() {
     // Update UI
     updateEvaluationStatus();
     
+    // Check if pair is complete and auto-submit - WAIT for completion
+    await checkAndSubmitCompletedPair();
+    
     alert('Visual Clutter responses saved successfully!');
 }
 
 // Save cognitive load responses for current pair
-function saveCognitiveResponses() {
+async function saveCognitiveResponses() {
     if (!currentPairId) {
         alert('No pair loaded for evaluation');
         return;
@@ -153,14 +156,14 @@ function saveCognitiveResponses() {
     // Update UI
     updateEvaluationStatus();
     
-    // Check if pair is complete and auto-submit
-    checkAndSubmitCompletedPair();
+    // Check if pair is complete and auto-submit - WAIT for completion
+    await checkAndSubmitCompletedPair();
     
     alert('Cognitive Load responses saved successfully!');
 }
 
 // Save interpretability responses for current pair
-function saveInterpretabilityResponses() {
+async function saveInterpretabilityResponses() {
     if (!currentPairId) {
         alert('No pair loaded for evaluation');
         return;
@@ -199,14 +202,14 @@ function saveInterpretabilityResponses() {
     // Update UI
     updateEvaluationStatus();
     
-    // Check if pair is complete and auto-submit
-    checkAndSubmitCompletedPair();
+    // Check if pair is complete and auto-submit - WAIT for completion
+    await checkAndSubmitCompletedPair();
     
     alert('Interpretability responses saved successfully!');
 }
 
 // Save style responses for current pair
-function saveStyleResponses() {
+async function saveStyleResponses() {
     if (!currentPairId) {
         alert('No pair loaded for evaluation');
         return;
@@ -249,26 +252,26 @@ function saveStyleResponses() {
     // Update UI
     updateEvaluationStatus();
     
-    // Check if pair is complete and auto-submit
-    checkAndSubmitCompletedPair();
+    // Check if pair is complete and auto-submit - WAIT for completion
+    await checkAndSubmitCompletedPair();
     
     alert('Style responses saved successfully!');
 }
 
-// Submit evaluation for a category (legacy function - now saves automatically)
-function submitEvaluation(category) {
+// Submit evaluation for a category (now properly async)
+async function submitEvaluation(category) {
     switch(category) {
         case 'clutter':
-            saveClutterResponses();
+            await saveClutterResponses();
             break;
         case 'cognitive_load':
-            saveCognitiveResponses();
+            await saveCognitiveResponses();
             break;
         case 'interpretability':
-            saveInterpretabilityResponses();
+            await saveInterpretabilityResponses();
             break;
         case 'style':
-            saveStyleResponses();
+            await saveStyleResponses();
             break;
     }
 }
@@ -321,6 +324,47 @@ async function testBackendConnection() {
     }
 }
 
+// Debug function to check current evaluation state
+function debugCurrentState() {
+    console.log('=== DEBUG: Current Evaluation State ===');
+    console.log('Current Pair ID:', currentPairId);
+    console.log('All Pair Evaluations:', allPairEvaluations);
+    
+    if (currentPairId && allPairEvaluations[currentPairId]) {
+        const currentPair = allPairEvaluations[currentPairId];
+        console.log('Current Pair Data:', currentPair);
+        console.log('Metadata Structure:', currentPair.metadata);
+        console.log('Dataset:', currentPair.metadata?.dataset);
+        console.log('Summary/QuestionSet:', currentPair.metadata?.summary);
+        console.log('Question:', currentPair.metadata?.question);
+        console.log('Pair Number:', currentPair.metadata?.pairNumber);
+        console.log('Completion Status:', currentPair.completionStatus);
+        console.log('Is Submitted?', currentPair.submitted);
+        console.log('Submitted At:', currentPair.submittedAt);
+        
+        const status = currentPair.completionStatus;
+        const isComplete = status.clutter && status.cognitive_load && status.interpretability && status.style;
+        console.log('Is Complete?', isComplete);
+        
+        // Show what would be submitted
+        if (isComplete) {
+            const metadata = currentPair.metadata || {};
+            const testSubmissionData = {
+                timestamp: new Date().toISOString(),
+                pairId: currentPairId,
+                dataset: metadata.dataset || 'unknown',
+                questionSet: metadata.summary || 'unknown',
+                pairNumber: metadata.pairNumber || 1,
+                evaluations: currentPair.evaluations
+            };
+            console.log('Would Submit This Data:', testSubmissionData);
+        }
+    }
+    
+    console.log('Google Apps Script URL:', GOOGLE_APPS_SCRIPT_URL);
+    console.log('=== END DEBUG ===');
+}
+
 // Check if current pair is complete and auto-submit to backend
 async function checkAndSubmitCompletedPair() {
     if (!currentPairId || !allPairEvaluations[currentPairId]) return;
@@ -355,9 +399,9 @@ async function submitPairToBackend(pairId) {
         const submissionData = {
             timestamp: new Date().toISOString(),
             pairId: pairId,
-            dataset: metadata.dataset || pairData.dataset || 'unknown',
-            questionSet: metadata.questionSet || pairData.questionSet || 'unknown', 
-            pairNumber: metadata.pairNumber || pairData.pairNumber || 1,
+            dataset: metadata.dataset || 'unknown',
+            questionSet: metadata.summary || 'unknown',  // This is the summaryDir like "sum1_ques1_25"
+            pairNumber: metadata.pairNumber || 1,
             userAgent: navigator.userAgent,
             sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             evaluations: pairData.evaluations
@@ -382,11 +426,13 @@ async function submitPairToBackend(pairId) {
             console.log('Response text:', responseText);
             console.log('Pair submitted successfully to backend');
             showPairSubmissionStatus(true);
+            return true;  // Success
         } else {
             const errorText = await response.text();
             console.error('Backend submission failed:', response.status, response.statusText);
             console.error('Error response:', errorText);
             showPairSubmissionStatus(false);
+            return false;  // Failure
         }
         
     } catch (error) {
@@ -397,6 +443,8 @@ async function submitPairToBackend(pairId) {
         allPairEvaluations[pairId].submitted = false;
         delete allPairEvaluations[pairId].submittedAt;
         localStorage.setItem('pairEvaluations', JSON.stringify(allPairEvaluations));
+        
+        return false;  // Failure
     }
 }
 

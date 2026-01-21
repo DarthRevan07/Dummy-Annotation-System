@@ -5,6 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Evaluation System</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .data-table th {
+            background-color: #e9ecef;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .data-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .data-table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -36,6 +72,23 @@
             </div>
             <div class="assumption-note">
                 <strong>Important:</strong> Both charts show visualizations of the same underlying dataset; only the visual design elements differ.
+            </div>
+            
+            <!-- Dataset Sample Section -->
+            <div class="dataset-sample-section" id="datasetSampleSection" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+                <h3 style="margin-top: 0; color: #495057; font-size: 1.1em;">Dataset Sample</h3>
+                <p style="margin-bottom: 15px; color: #6c757d; font-size: 0.9em;">
+                    Below is a preview of the underlying data that both charts visualize:
+                </p>
+                <div class="data-table-container" id="dataTableContainer">
+                    <div class="loading-message" style="text-align: center; padding: 20px; color: #6c757d;">
+                        <div class="spinner" style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 10px;"></div>
+                        Loading dataset sample...
+                    </div>
+                </div>
+                <div class="dataset-stats" id="datasetStats" style="margin-top: 10px; font-size: 0.85em; color: #6c757d;">
+                    <!-- Dataset statistics will be populated here -->
+                </div>
             </div>
         </div>
 
@@ -797,6 +850,178 @@
         let currentPairProcessor = null;
         let currentPairIndex = 0;
 
+        // CSV loading and display functionality
+        const csvFilenames = {
+            'ATP_rendered_charts': 'atp_number_1.csv',
+            'fifa18_rendered_charts': 'fifa18_clean.csv', 
+            'Inc500Charts': 'Data Set- Inc5000 Company List_2014.csv'
+        };
+
+        const fallbackCSVData = {
+            'Inc500Charts': "rank,workers,company,revenue,growth,industry,state_l,city,metro,yrs_on_list\n1,227,Fuhu,195640000,158956.91,Consumer Products & Services,California,El Segundo,Los Angeles,2\n2,191,Quest Nutrition,82640563,57347.92,Food & Beverage,California,El Segundo,Los Angeles,1\n3,108,Vacasa,51869307,52059.52,Travel & Hospitality,Oregon,Portland,Portland,1\n4,62,Active Wellness,43158688,41977.23,Health,California,San Diego,San Diego,1\n5,750,Lumos Networks,42082811,41093.89,Telecommunications,Virginia,Richmond,Richmond,3\n6,150,FIGS,40975692,40018.11,Consumer Products & Services,California,Santa Monica,Los Angeles,1\n7,51,iHeartMedia,39846336,38975.12,Media,Texas,San Antonio,San Antonio,2\n8,290,Shopify,38951447,38095.45,Software,Canada,Ottawa,Ottawa,2\n9,125,Rocket Internet,37962558,37154.78,Software,Germany,Berlin,Berlin,1\n10,88,ThoughtSpot,36954669,36104.11,Software,California,Palo Alto,San Francisco,1",
+            
+            'fifa18_rendered_charts': "Wage (€),Value (€),Name,Age,Photo,Nationality,Overall,Potential,Club,Special,Acceleration,Sprint speed\n565000,95500000,Cristiano Ronaldo,32,https://cdn.sofifa.org/48/18/players/20801.png,Portugal,94,94,Real Madrid CF,2228,89,91\n565000,105000000,L. Messi,30,https://cdn.sofifa.org/48/18/players/158023.png,Argentina,93,93,FC Barcelona,2154,92,87\n280000,123000000,Neymar,25,https://cdn.sofifa.org/48/18/players/190871.png,Brazil,92,94,Paris Saint-Germain,2100,94,90\n510000,97000000,L. Suárez,30,https://cdn.sofifa.org/48/18/players/176580.png,Uruguay,92,92,FC Barcelona,2291,88,77\n355000,92000000,R. Lewandowski,28,https://cdn.sofifa.org/48/18/players/188545.png,Poland,91,91,FC Bayern Munich,2143,79,83\n215000,64500000,De Gea,26,https://cdn.sofifa.org/48/18/players/193080.png,Spain,90,92,Manchester United,1458,57,58\n295000,90500000,E. Hazard,26,https://cdn.sofifa.org/48/18/players/183277.png,Belgium,90,91,Chelsea,2096,93,87\n340000,79000000,T. Kroos,27,https://cdn.sofifa.org/48/18/players/182521.png,Germany,90,90,Real Madrid CF,2165,60,52\n275000,77000000,G. Higuaín,29,https://cdn.sofifa.org/48/18/players/167664.png,Argentina,90,90,Juventus,1961,78,80\n310000,52000000,Sergio Ramos,31,https://cdn.sofifa.org/48/18/players/155862.png,Spain,90,90,Real Madrid CF,2153,75,77",
+
+            'ATP_rendered_charts': "Player,DOB,Cumulative Weeks,Date,Sex,Weeks,Age (days),Age (years)\nIlie Nastase,7/19/1946,40,8/23/1973,Male,40,9897,27.09\nJohn Newcombe,5/23/1944,8,6/3/1974,Male,8,10968,30.03\nJimmy Connors,9/2/1952,160,7/29/1974,Male,160,8000,21.90\nBjörn Borg,6/6/1956,1,8/23/1977,Male,1,7748,21.21\nJimmy Connors,9/2/1952,244,8/30/1977,Male,84,9128,24.99\nBjörn Borg,6/6/1956,7,4/9/1979,Male,6,8342,22.84\nJimmy Connors,9/2/1952,251,5/21/1979,Male,7,9757,26.71\nBjörn Borg,6/6/1956,41,7/9/1979,Male,34,8433,23.09\nJohn McEnroe,2/16/1959,3,3/3/1980,Male,3,7686,21.04\nBjörn Borg,6/6/1956,61,3/24/1980,Male,20,8692,23.80"
+        };
+
+        // Load CSV data from the csv folder
+        async function loadCSVData(dataset) {
+            const filename = csvFilenames[dataset];
+            if (!filename) {
+                throw new Error('No CSV file mapping found for dataset: ' + dataset);
+            }
+            
+            try {
+                const response = await fetch('csv/' + filename);
+                if (!response.ok) {
+                    throw new Error(`Failed to load CSV file: ${filename} (Status: ${response.status})`);
+                }
+                
+                const csvText = await response.text();
+                return parseCSV(csvText);
+            } catch (error) {
+                console.error('Error loading CSV file:', error);
+                console.log('Using fallback CSV data for', dataset);
+                const fallbackText = fallbackCSVData[dataset];
+                if (fallbackText) {
+                    return parseCSV(fallbackText);
+                } else {
+                    throw new Error('No fallback data available for dataset: ' + dataset);
+                }
+            }
+        }
+
+        // Parse CSV text into array of objects
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',').map(header => header.trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length && i <= 15; i++) { // Limit to 15 rows
+                const values = parseCSVLine(lines[i]);
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index];
+                    });
+                    data.push(row);
+                }
+            }
+            
+            return { headers: headers, data: data, totalRows: lines.length - 1 };
+        }
+
+        // Parse a single CSV line, handling quoted values
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            result.push(current.trim());
+            return result;
+        }
+
+        // Create HTML table from parsed CSV data
+        function createDataTable(csvData, maxRows = 15) {
+            const { headers, data, totalRows } = csvData;
+            
+            if (!data || data.length === 0) {
+                return '<p style="text-align: center; color: #6c757d;">No data available</p>';
+            }
+            
+            let html = '<table class="data-table"><thead><tr>';
+            
+            // Create header row
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            // Create data rows
+            data.forEach(row => {
+                html += '<tr>';
+                headers.forEach(header => {
+                    let value = row[header] || '';
+                    // Truncate long values for display
+                    if (value.length > 50) {
+                        value = value.substring(0, 47) + '...';
+                    }
+                    html += `<td>${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            
+            return html;
+        }
+
+        // Load and display CSV data
+        async function loadAndDisplayCSVData(dataset, datasetName) {
+            const tableContainer = document.getElementById('dataTableContainer');
+            const statsContainer = document.getElementById('datasetStats');
+            
+            if (!tableContainer) {
+                console.warn('Data table container not found');
+                return;
+            }
+            
+            try {
+                console.log('Loading CSV data for dataset:', dataset);
+                const csvData = await loadCSVData(dataset);
+                
+                // Display the data table
+                tableContainer.innerHTML = createDataTable(csvData, 15);
+                
+                // Display dataset statistics
+                if (statsContainer) {
+                    statsContainer.innerHTML = `
+                        <strong>Dataset:</strong> ${datasetName} | 
+                        <strong>Columns:</strong> ${csvData.headers.length} | 
+                        <strong>Total Rows:</strong> ${csvData.totalRows} | 
+                        <strong>Showing:</strong> ${Math.min(15, csvData.data.length)} rows
+                    `;
+                }
+                
+                console.log('CSV data loaded successfully:', {
+                    headers: csvData.headers.length,
+                    rows: csvData.data.length,
+                    totalRows: csvData.totalRows
+                });
+                
+            } catch (error) {
+                console.error('Error loading CSV data:', error);
+                
+                // Show error message
+                tableContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #dc3545;">
+                        <div style="margin-bottom: 10px;">⚠️ Unable to load dataset sample</div>
+                        <div style="font-size: 0.85em; color: #6c757d;">
+                            Error: ${error.message}
+                        </div>
+                    </div>
+                `;
+                
+                if (statsContainer) {
+                    statsContainer.innerHTML = `<strong>Dataset:</strong> ${datasetName} | <span style="color: #dc3545;">Unable to load data</span>`;
+                }
+            }
+        }
+
         // Load dynamic master question based on URL parameters
         async function loadMasterQuestion() {
             try {
@@ -870,6 +1095,9 @@
                 document.getElementById('targetAudience').textContent = summaryData.target_audience;
                 document.getElementById('dynamicMasterQuestion').innerHTML = `<strong>${questionText}</strong>`;
                 document.getElementById('dynamicCuratorContext').innerHTML = `<em>Context: ${summaryData.metadata.curator_intention}</em>`;
+                
+                // Load and display CSV data sample
+                await loadAndDisplayCSVData(dataset, datasetInfo.name);
                 
                 console.log('Master question loaded successfully:', {
                     dataset: datasetInfo.name,
