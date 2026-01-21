@@ -861,8 +861,8 @@
                     return;
                 }
                 
-                // Load questions JSON file
-                const questionsFile = `./questions_output/${datasetInfo.file}/generation_001/questions_generation_001.json`;
+                // Load questions JSON file with cache busting
+                const questionsFile = `./questions_output/${datasetInfo.file}/generation_001/questions_generation_001.json?v=${Date.now()}`;
                 const response = await fetch(questionsFile);
                 
                 if (!response.ok) {
@@ -876,17 +876,26 @@
                 const summaryIdx = parseInt(summary) || 1;
                 const questionIdx = parseInt(question) || 1;
                 
+                console.log('Looking for summaryIdx:', summaryIdx, 'questionIdx:', questionIdx);
+                console.log('Available summaries:', questionsData.questions.map(q => ({ summary_idx: q.summary_idx, num_questions: q.questions.length })));
+                
                 const summaryData = questionsData.questions.find(q => q.summary_idx === summaryIdx);
                 if (!summaryData) {
                     console.warn('Summary not found:', summaryIdx);
+                    console.warn('Available summaries:', questionsData.questions.map(q => q.summary_idx));
                     return;
                 }
                 
-                const questionText = summaryData.questions[questionIdx - 1];
+                console.log('Found summary data:', { summary_idx: summaryData.summary_idx, questions_count: summaryData.questions.length });
+                
+                const questionText = summaryData.questions[questionIdx - 1]; // Convert to 0-based index
                 if (!questionText) {
-                    console.warn('Question not found:', questionIdx);
+                    console.warn('Question not found at index:', questionIdx - 1, 'in summary:', summaryIdx);
+                    console.warn('Available questions:', summaryData.questions);
                     return;
                 }
+                
+                console.log('Selected question:', questionText);
                 
                 // Update the UI elements
                 document.getElementById('datasetName').textContent = datasetInfo.name;
@@ -894,16 +903,29 @@
                 document.getElementById('dynamicMasterQuestion').innerHTML = `<strong>${questionText}</strong>`;
                 document.getElementById('dynamicCuratorContext').innerHTML = `<em>Context: ${summaryData.metadata.curator_intention}</em>`;
                 
-                console.log('Master question loaded successfully');
+                console.log('Master question loaded successfully:', {
+                    dataset: datasetInfo.name,
+                    summary: summaryIdx,
+                    question: questionIdx,
+                    questionText: questionText.substring(0, 50) + '...'
+                });
                 
             } catch (error) {
                 console.error('Error loading master question:', error);
+                console.error('Failed for parameters:', { dataset, summary, question });
                 
-                // Fallback content
-                document.getElementById('datasetName').textContent = 'Dataset information unavailable';
+                // More specific error handling
+                if (error.message.includes('Failed to load questions')) {
+                    console.error('Questions file not found or inaccessible');
+                } else if (error.message.includes('Summary not found') || error.message.includes('Question not found')) {
+                    console.error('Invalid summary/question combination');
+                }
+                
+                // Fallback content with error indication
+                document.getElementById('datasetName').textContent = `Error loading dataset (${dataset || 'unknown'})`;
                 document.getElementById('targetAudience').textContent = 'General users';
-                document.getElementById('dynamicMasterQuestion').innerHTML = '<strong>Please evaluate the visual design aspects of the following chart pairs.</strong>';
-                document.getElementById('dynamicCuratorContext').innerHTML = '<em>Context: Compare the charts based on the evaluation criteria provided.</em>';
+                document.getElementById('dynamicMasterQuestion').innerHTML = '<strong style="color: red;">Error loading question - Please check console for details</strong>';
+                document.getElementById('dynamicCuratorContext').innerHTML = '<em style="color: red;">Context: Error occurred while loading question data</em>';
             }
         }
         
