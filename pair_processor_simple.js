@@ -43,6 +43,14 @@ class PairProcessor {
      * @param {Object} urlParams - URL parameters for filtering
      */
     async scanPairDirectories(urlParams = null) {
+        console.log('=== SCANNING PAIR DIRECTORIES ===');
+        console.log('URL params:', urlParams ? Object.fromEntries(urlParams) : 'none');
+        console.log('Environment:', {
+            hostname: window.location.hostname,
+            isGitHubPages: window.location.hostname.includes('github.io'),
+            basePath: this.basePath
+        });
+        
         const datasets = ['ATP_rendered_charts', 'fifa18_rendered_charts', 'Inc500Charts'];
         
         // Filter by dataset parameter if provided
@@ -53,28 +61,45 @@ class PairProcessor {
             console.log(`Filtering for dataset: ${selectedDataset}`);
         }
         
+        console.log('Target datasets:', targetDatasets);
+        
         for (const dataset of targetDatasets) {
+            console.log(`\n--- Processing dataset: ${dataset} ---`);
             try {
                 const summaryDirs = await this.getSummaryDirectories(dataset);
+                console.log(`Summary directories found:`, summaryDirs);
                 
                 for (const summaryDir of summaryDirs) {
+                    console.log(`\n  Processing summary: ${summaryDir}`);
                     // Filter by URL parameters if provided
                     if (!this.matchesUrlParams(summaryDir, urlParams)) {
+                        console.log(`    Skipped - doesn't match URL params`);
                         continue;
                     }
                     
                     const pairDirs = await this.getActualPairDirectories(dataset, summaryDir);
+                    console.log(`    Pair directories found:`, pairDirs);
                     
                     for (const pairDir of pairDirs) {
+                        console.log(`\n    Processing pair: ${pairDir}`);
                         const pairData = await this.processPairDirectory(dataset, summaryDir, pairDir);
                         if (pairData && pairData.images.length >= 2) {
                             this.allPairs.push(pairData);
+                            console.log(`      ✅ Added pair: ${pairData.id} with ${pairData.images.length} images`);
+                        } else {
+                            console.log(`      ❌ Rejected pair: insufficient images (${pairData ? pairData.images.length : 0})`);
                         }
                     }
                 }
             } catch (error) {
-                console.warn(`Error processing dataset ${dataset}:`, error);
+                console.error(`Error processing dataset ${dataset}:`, error);
             }
+        }
+        
+        console.log(`\n=== SCAN COMPLETE ===`);
+        console.log(`Total pairs found: ${this.allPairs.length}`);
+        if (this.allPairs.length > 0) {
+            console.log('Pair summary:', this.allPairs.map(p => ({ id: p.id, imageCount: p.images.length })));
         }
     }
 
@@ -226,44 +251,66 @@ class PairProcessor {
     async loadImagesFromDirectory(dirPath) {
         const images = [];
         const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg'];
+        const isGitHubPages = window.location.hostname.includes('github.io');
         
-        console.log('Loading images from directory:', dirPath);
+        console.log(`\n      Loading images from directory: ${dirPath}`);
         
-        // Try common image names - expanded range and different patterns
-        const testFiles = [];
-        
-        // Pattern 1: 1.png, 2.png, etc. (expanded range to cover ATP numbers like 11, 9, 6, 8)
-        for (let i = 1; i <= 30; i++) {
-            for (const ext of imageExtensions) {
-                testFiles.push(`${i}${ext}`);
-            }
-        }
-        
-        // Pattern 2: chart1.png, chart2.png, etc.
-        for (let i = 1; i <= 15; i++) {
-            for (const ext of imageExtensions) {
-                testFiles.push(`chart${i}${ext}`);
-                testFiles.push(`image${i}${ext}`);
-            }
-        }
-        
-        console.log('Testing image files:', testFiles.slice(0, 10), '...');
-        
-        for (const filename of testFiles) {
-            const imagePath = `${dirPath}/${filename}`;
-            const exists = await this.checkImageExists(imagePath);
-            console.log(`Checking ${imagePath}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+        if (isGitHubPages) {
+            // For GitHub Pages, use known image mappings instead of checking existence
+            const knownImages = this.getKnownImagesForPath(dirPath);
+            console.log(`      Using known images for GitHub Pages:`, knownImages);
             
-            if (exists) {
-                const isGitHubPages = window.location.hostname.includes('github.io');
-                const finalUrl = isGitHubPages ? imagePath : `${imagePath}?v=${Date.now()}`;
-                
+            for (const filename of knownImages) {
+                const imagePath = `${dirPath}/${filename}`;
                 images.push({
                     name: filename,
                     path: imagePath,
-                    fullUrl: finalUrl // GitHub Pages doesn't need cache-busting, local does
+                    fullUrl: imagePath
                 });
-                console.log('Added image:', imagePath);
+                console.log(`        ✅ Added known image: ${filename}`);
+            }
+        } else {
+            // Local development - check for image existence
+            const testFiles = [];
+            
+            // Pattern 1: 1.png, 2.png, etc.
+            for (let i = 1; i <= 30; i++) {
+                for (const ext of imageExtensions) {
+                    testFiles.push(`${i}${ext}`);
+                }
+            }
+            
+            // Pattern 2: chart1.png, chart2.png, etc.
+            for (let i = 1; i <= 15; i++) {
+                for (const ext of imageExtensions) {
+                    testFiles.push(`chart${i}${ext}`);
+                    testFiles.push(`image${i}${ext}`);
+                }
+            }
+            
+            console.log(`      Testing ${testFiles.length} possible image names...`);
+            
+            let foundCount = 0;
+            for (const filename of testFiles) {
+                const imagePath = `${dirPath}/${filename}`;
+                const exists = await this.checkImageExists(imagePath);
+                
+                if (exists) {
+                    foundCount++;
+                    const finalUrl = `${imagePath}?v=${Date.now()}`;
+                    
+                    images.push({
+                        name: filename,
+                        path: imagePath,
+                        fullUrl: finalUrl
+                    });
+                    console.log(`        ✅ Found: ${filename}`);
+                    
+                    if (foundCount >= 10) {
+                        console.log(`        (Stopped searching after finding ${foundCount} images)`);
+                        break;
+                    }
+                }
             }
         }
         
@@ -274,7 +321,11 @@ class PairProcessor {
             return aNum - bNum;
         });
         
-        console.log(`Found ${images.length} images in ${dirPath}:`, images.map(img => img.name));
+        console.log(`      Result: Found ${images.length} images in ${dirPath}`);
+        if (images.length > 0) {
+            console.log(`      Images: ${images.map(img => img.name).join(', ')}`);
+        }
+        
         return images;
     }
 
@@ -315,6 +366,71 @@ class PairProcessor {
     }
 
     /**
+     * Get known images for a specific path (GitHub Pages only)
+     */
+    getKnownImagesForPath(dirPath) {
+        // Extract dataset, summary, and pair from the path
+        const pathParts = dirPath.split('/');
+        const dataset = pathParts[pathParts.length - 3];
+        const summary = pathParts[pathParts.length - 2];
+        const pair = pathParts[pathParts.length - 1];
+        
+        // Known image mappings based on actual file structure
+        const knownImageMappings = {
+            'Inc500Charts': {
+                'sum1_ques1': {
+                    'pair1': ['5.png', '7.png'],
+                    'pair2': ['10.png', '8.png']
+                },
+                'sum3_ques1': {
+                    'pair1': ['6.png', '7.png'],
+                    'pair2': ['12.png', '13.png'],
+                    'pair3': ['10.png', '11.png']
+                },
+                'sum3_ques2': {
+                    'pair1': ['1.png', '2.png'],
+                    'pair2': ['10.png', '8.png'],
+                    'pair3': ['14.png', '15.png']
+                }
+            },
+            'fifa18_rendered_charts': {
+                'sum1_ques2': {
+                    'pair1': ['15.png', '17.png'],
+                    'pair2': ['10.png', '20.png']
+                },
+                'sum3_ques1': {
+                    'pair1': ['2.png', '4.png'],
+                    'pair2': ['1.png', '7.png'],
+                    'pair3': ['7.png', '9.png'],
+                    'pair4': ['12.png', '16.png'],
+                    'pair5': ['18.png', '20.png'],
+                    'pair6': ['19.png', '25.png']
+                },
+                'sum3_ques2': {
+                    'pair1': ['14.png', '5.png'],
+                    'pair2': ['15.png', '3.png'],
+                    'pair3': ['16.png', '18.png']
+                }
+            },
+            'ATP_rendered_charts': {
+                'sum1_ques3': {
+                    'pair1': ['11.png', '9.png'],
+                    'pair2': ['6.png', '7.png'],
+                    'pair3': ['1.png', '6.png'],
+                    'pair4': ['10.png', '4.png']
+                },
+                'sum3_ques2': {
+                    'pair1': ['6.png', '8.png']
+                }
+            }
+        };
+        
+        const images = knownImageMappings[dataset]?.[summary]?.[pair] || [];
+        console.log(`      Known images for ${dataset}/${summary}/${pair}:`, images);
+        return images;
+    }
+
+    /**
      * Check if image file exists
      */
     async checkImageExists(imagePath) {
@@ -322,12 +438,19 @@ class PairProcessor {
             // Use GET instead of HEAD as some servers don't support HEAD for static files
             const response = await fetch(imagePath);
             const exists = response.ok;
-            if (!exists && response.status !== 404) {
-                console.log(`Image check for ${imagePath}: status ${response.status}`);
+            
+            if (!exists) {
+                if (response.status === 404) {
+                    // Normal - file doesn't exist
+                    return false;
+                } else {
+                    console.log(`        Image check for ${imagePath}: HTTP ${response.status}`);
+                }
             }
+            
             return exists;
         } catch (error) {
-            console.log(`Image check error for ${imagePath}:`, error.message);
+            console.log(`        Image check error for ${imagePath}: ${error.message}`);
             return false;
         }
     }
