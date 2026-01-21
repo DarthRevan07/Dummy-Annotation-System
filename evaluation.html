@@ -22,17 +22,17 @@
         </div>
 
         <!-- Master Question Section -->
-        <div class="master-question-section">
+        <div class="master-question-section" id="masterQuestionSection">
             <h2 class="master-question-title">Master Question</h2>
-            <div class="dataset-info">
-                <strong>Dataset:</strong> Inc5000 Company List 2014<br>
-                <strong>Target Audience:</strong> Business executives, investors, and strategic planners
+            <div class="dataset-info" id="dynamicDatasetInfo">
+                <strong>Dataset:</strong> <span id="datasetName">Loading...</span><br>
+                <strong>Target Audience:</strong> <span id="targetAudience">Loading...</span>
             </div>
-            <p class="master-question-text">
-                <strong>Which industries consistently produce the highest-growth companies across different states, and are there regional patterns worth exploring?</strong>
+            <p class="master-question-text" id="dynamicMasterQuestion">
+                <strong>Loading question...</strong>
             </p>
-            <div class="curator-context">
-                <em>Context: Encourage decision makers to analyze high-growth sectors for potential investment, benchmarking, or location-based strategic expansion.</em>
+            <div class="curator-context" id="dynamicCuratorContext">
+                <em>Loading context...</em>
             </div>
             <div class="assumption-note">
                 <strong>Important:</strong> Both charts show visualizations of the same underlying dataset; only the visual design elements differ.
@@ -829,11 +829,93 @@
         let currentPairProcessor = null;
         let currentPairIndex = 0;
 
+        // Load dynamic master question based on URL parameters
+        async function loadMasterQuestion() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const dataset = urlParams.get('dataset');
+                const summary = urlParams.get('summary');
+                const question = urlParams.get('question');
+                
+                console.log('Loading master question for:', { dataset, summary, question });
+                
+                // Dataset mapping
+                const datasetMap = {
+                    'Inc500Charts': {
+                        name: 'Inc5000 Company List 2014',
+                        file: 'Data Set- Inc5000 Company List_2014_summaries'
+                    },
+                    'fifa18_rendered_charts': {
+                        name: 'FIFA 18 Dataset',
+                        file: 'fifa18_clean_summaries'
+                    },
+                    'ATP_rendered_charts': {
+                        name: 'ATP Number 1 Rankings',
+                        file: 'atp_number_1_summaries'
+                    }
+                };
+                
+                const datasetInfo = datasetMap[dataset];
+                if (!datasetInfo) {
+                    console.warn('Unknown dataset:', dataset);
+                    return;
+                }
+                
+                // Load questions JSON file
+                const questionsFile = `./questions_output/${datasetInfo.file}/generation_001/questions_generation_001.json`;
+                const response = await fetch(questionsFile);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load questions: ${response.status}`);
+                }
+                
+                const questionsData = await response.json();
+                console.log('Loaded questions data:', questionsData);
+                
+                // Find the right question based on summary and question parameters
+                const summaryIdx = parseInt(summary) || 1;
+                const questionIdx = parseInt(question) || 1;
+                
+                const summaryData = questionsData.questions.find(q => q.summary_idx === summaryIdx);
+                if (!summaryData) {
+                    console.warn('Summary not found:', summaryIdx);
+                    return;
+                }
+                
+                const questionText = summaryData.questions[questionIdx - 1];
+                if (!questionText) {
+                    console.warn('Question not found:', questionIdx);
+                    return;
+                }
+                
+                // Update the UI elements
+                document.getElementById('datasetName').textContent = datasetInfo.name;
+                document.getElementById('targetAudience').textContent = summaryData.target_audience;
+                document.getElementById('dynamicMasterQuestion').innerHTML = `<strong>${questionText}</strong>`;
+                document.getElementById('dynamicCuratorContext').innerHTML = `<em>Context: ${summaryData.metadata.curator_intention}</em>`;
+                
+                console.log('Master question loaded successfully');
+                
+            } catch (error) {
+                console.error('Error loading master question:', error);
+                
+                // Fallback content
+                document.getElementById('datasetName').textContent = 'Dataset information unavailable';
+                document.getElementById('targetAudience').textContent = 'General users';
+                document.getElementById('dynamicMasterQuestion').innerHTML = '<strong>Please evaluate the visual design aspects of the following chart pairs.</strong>';
+                document.getElementById('dynamicCuratorContext').innerHTML = '<em>Context: Compare the charts based on the evaluation criteria provided.</em>';
+            }
+        }
+        
         // Initialize pair loading on page load
         async function initializeIntegratedPairs() {
             try {
                 console.log('Initializing integrated pair system...');
                 const urlParams = new URLSearchParams(window.location.search);
+                
+                // Load master question first
+                await loadMasterQuestion();
+                
                 currentPairProcessor = new PairProcessor();
                 await currentPairProcessor.initialize(urlParams);
                 
