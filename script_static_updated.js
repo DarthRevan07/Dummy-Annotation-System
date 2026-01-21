@@ -1164,6 +1164,6 @@ document.addEventListener('keydown', function(event) {
 function goToHomePage() {
     const result = confirm('Are you sure you want to return to the home page? Make sure you have submitted all your evaluations first.');
     if (result) {
-        window.location.href = 'index.html';
+        window.location.href = 'dataset_selector.html';
     }
 }
