@@ -5,7 +5,23 @@
 
 class PairProcessor {
     constructor() {
-        this.basePath = './pairs';
+        // Detect if running on GitHub Pages and adjust base path accordingly
+        const isGitHubPages = window.location.hostname.includes('github.io');
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        if (isGitHubPages) {
+            // GitHub Pages serves from /repository-name/ path
+            this.basePath = '/Dummy-Annotation-System/pairs';
+        } else if (isLocal) {
+            // Local development server
+            this.basePath = './pairs';
+        } else {
+            // Default fallback
+            this.basePath = './pairs';
+        }
+        
+        console.log('Environment detected:', { isGitHubPages, isLocal, basePath: this.basePath });
+        
         this.currentPairIndex = 0;
         this.allPairs = [];
         this.isInitialized = false;
@@ -87,14 +103,29 @@ class PairProcessor {
      */
     async getSummaryDirectories(dataset) {
         const summaryDirs = [];
-        const testDirs = [
-            'sum1_ques1', 'sum1_ques2', 'sum1_ques3',
-            'sum3_ques1', 'sum3_ques2', 'sum3_ques3'
-        ];
         
-        for (const dir of testDirs) {
-            if (await this.checkDirectoryExists(`${this.basePath}/${dataset}/${dir}`)) {
-                summaryDirs.push(dir);
+        // Known summary directories that exist for each dataset
+        const knownSummaries = {
+            'Inc500Charts': ['sum1_ques1', 'sum3_ques1', 'sum3_ques2'],
+            'fifa18_rendered_charts': ['sum1_ques1', 'sum1_ques2', 'sum3_ques1', 'sum3_ques2'],
+            'ATP_rendered_charts': ['sum1_ques3', 'sum3_ques2']
+        };
+        
+        const isGitHubPages = window.location.hostname.includes('github.io');
+        
+        if (isGitHubPages) {
+            // On GitHub Pages, use known directories instead of trying to list
+            const dirs = knownSummaries[dataset] || [];
+            console.log(`Using known directories for ${dataset} on GitHub Pages:`, dirs);
+            return dirs;
+        } else {
+            // Local development - check each directory
+            const testDirs = knownSummaries[dataset] || [];
+            
+            for (const dir of testDirs) {
+                if (await this.checkDirectoryExists(`${this.basePath}/${dataset}/${dir}`)) {
+                    summaryDirs.push(dir);
+                }
             }
         }
         
@@ -106,17 +137,43 @@ class PairProcessor {
      */
     async getActualPairDirectories(dataset, summaryDir) {
         const pairDirs = [];
+        const isGitHubPages = window.location.hostname.includes('github.io');
         
-        // Check for pair directories (pair1, pair2, pair3, etc.)
-        for (let i = 1; i <= 20; i++) {
-            const pairDir = `pair${i}`;
-            if (await this.checkDirectoryExists(`${this.basePath}/${dataset}/${summaryDir}/${pairDir}`)) {
-                pairDirs.push(pairDir);
+        if (isGitHubPages) {
+            // On GitHub Pages, use known pair directories instead of checking existence
+            const knownPairs = {
+                'Inc500Charts': {
+                    'sum1_ques1': ['pair1', 'pair2'],
+                    'sum3_ques1': ['pair1', 'pair2', 'pair3'],
+                    'sum3_ques2': ['pair1', 'pair2', 'pair3']
+                },
+                'fifa18_rendered_charts': {
+                    'sum1_ques1': [], // No pairs in this directory
+                    'sum1_ques2': ['pair1', 'pair2'],
+                    'sum3_ques1': ['pair1', 'pair2', 'pair3', 'pair4', 'pair5', 'pair6'],
+                    'sum3_ques2': ['pair1', 'pair2', 'pair3']
+                },
+                'ATP_rendered_charts': {
+                    'sum1_ques3': ['pair1', 'pair2', 'pair3', 'pair4'],
+                    'sum3_ques2': ['pair1']
+                }
+            };
+            
+            const pairs = knownPairs[dataset]?.[summaryDir] || [];
+            console.log(`Using known pairs for ${dataset}/${summaryDir} on GitHub Pages:`, pairs);
+            return pairs;
+        } else {
+            // Local development - check for pair directories
+            for (let i = 1; i <= 20; i++) {
+                const pairDir = `pair${i}`;
+                if (await this.checkDirectoryExists(`${this.basePath}/${dataset}/${summaryDir}/${pairDir}`)) {
+                    pairDirs.push(pairDir);
+                }
             }
+            
+            console.log(`Found ${pairDirs.length} actual pair directories in ${dataset}/${summaryDir}:`, pairDirs);
+            return pairDirs;
         }
-        
-        console.log(`Found ${pairDirs.length} actual pair directories in ${dataset}/${summaryDir}:`, pairDirs);
-        return pairDirs;
     }
 
     /**
@@ -198,10 +255,13 @@ class PairProcessor {
             console.log(`Checking ${imagePath}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
             
             if (exists) {
+                const isGitHubPages = window.location.hostname.includes('github.io');
+                const finalUrl = isGitHubPages ? imagePath : `${imagePath}?v=${Date.now()}`;
+                
                 images.push({
                     name: filename,
                     path: imagePath,
-                    fullUrl: `${imagePath}?v=${Date.now()}` // Add cache-busting parameter
+                    fullUrl: finalUrl // GitHub Pages doesn't need cache-busting, local does
                 });
                 console.log('Added image:', imagePath);
             }
@@ -223,8 +283,32 @@ class PairProcessor {
      */
     async checkDirectoryExists(dirPath) {
         try {
-            const response = await fetch(dirPath + '/');
-            return response.ok || response.status === 403; // 403 means directory exists but listing disabled
+            // For GitHub Pages, we can't check directory existence directly
+            // Instead, we'll try to fetch a common file that might exist in the directory
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            
+            if (isGitHubPages) {
+                // On GitHub Pages, assume directory exists if we're checking known paths
+                const knownPaths = [
+                    '/Dummy-Annotation-System/pairs/Inc500Charts/sum1_ques1',
+                    '/Dummy-Annotation-System/pairs/Inc500Charts/sum3_ques1', 
+                    '/Dummy-Annotation-System/pairs/Inc500Charts/sum3_ques2',
+                    '/Dummy-Annotation-System/pairs/fifa18_rendered_charts/sum1_ques1',
+                    '/Dummy-Annotation-System/pairs/fifa18_rendered_charts/sum1_ques2',
+                    '/Dummy-Annotation-System/pairs/fifa18_rendered_charts/sum3_ques1',
+                    '/Dummy-Annotation-System/pairs/fifa18_rendered_charts/sum3_ques2',
+                    '/Dummy-Annotation-System/pairs/ATP_rendered_charts/sum1_ques3',
+                    '/Dummy-Annotation-System/pairs/ATP_rendered_charts/sum3_ques2'
+                ];
+                
+                const dirExists = knownPaths.some(path => dirPath.includes(path.substring(25))); // Remove repo prefix for comparison
+                console.log(`Directory check (GitHub Pages): ${dirPath} -> ${dirExists}`);
+                return dirExists;
+            } else {
+                // Local development - try to fetch directory
+                const response = await fetch(dirPath + '/');
+                return response.ok || response.status === 403; // 403 means directory exists but listing disabled
+            }
         } catch {
             return false;
         }
