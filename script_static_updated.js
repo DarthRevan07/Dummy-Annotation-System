@@ -220,6 +220,10 @@ function saveStyleResponses() {
     const chartBRating = document.querySelector('input[name="chart_b_style"]:checked');
     responses.chart_b_style = chartBRating ? parseInt(chartBRating.value) : null;
     
+    // Confidence rating
+    const confidence = document.querySelector('input[name="confidence_style"]:checked');
+    responses.confidence_style = confidence ? parseInt(confidence.value) : null;
+    
     // Rationale
     responses.rationale_style = document.getElementById('rationale_style') ? document.getElementById('rationale_style').value.trim() : '';
     
