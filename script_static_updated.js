@@ -274,7 +274,52 @@ function submitEvaluation(category) {
 }
 
 // Google Apps Script endpoint configuration
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxDPp-Iyd1JKHbhsuuHmkbXK9hZViDXJ1TsrapktPWVW3QXzT5obkYzkJcOBWKn8wou/exec';
+
+// Test function to verify backend connection
+async function testBackendConnection() {
+    try {
+        console.log('Testing backend connection...');
+        const testData = {
+            timestamp: new Date().toISOString(),
+            pairId: 'test-pair-123',
+            dataset: 'test-dataset',
+            questionSet: 'test-question',
+            pairNumber: 1,
+            evaluations: {
+                clutter: {
+                    responses: {
+                        primary_clutter: 'chart_a',
+                        chart_a_clutter: 2,
+                        chart_b_clutter: 3,
+                        rationale_clutter: 'Test rationale'
+                    }
+                }
+            }
+        };
+        
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(testData)
+        });
+        
+        console.log('Test response status:', response.status);
+        const responseText = await response.text();
+        console.log('Test response text:', responseText);
+        
+        if (response.ok) {
+            alert('✅ Backend connection successful! Check your Google Sheet for test data.');
+        } else {
+            alert('❌ Backend connection failed. Check console for details.');
+        }
+    } catch (error) {
+        console.error('Test connection error:', error);
+        alert('❌ Connection test failed. Check console for details.');
+    }
+}
 
 // Check if current pair is complete and auto-submit to backend
 async function checkAndSubmitCompletedPair() {
@@ -303,18 +348,23 @@ async function checkAndSubmitCompletedPair() {
 async function submitPairToBackend(pairId) {
     try {
         const pairData = allPairEvaluations[pairId];
+        
+        // Extract metadata - handle missing properties gracefully
+        const metadata = pairData.metadata || {};
+        
         const submissionData = {
             timestamp: new Date().toISOString(),
             pairId: pairId,
-            dataset: pairData.dataset,
-            questionSet: pairData.questionSet,
-            pairNumber: pairData.pairNumber,
+            dataset: metadata.dataset || pairData.dataset || 'unknown',
+            questionSet: metadata.questionSet || pairData.questionSet || 'unknown', 
+            pairNumber: metadata.pairNumber || pairData.pairNumber || 1,
             userAgent: navigator.userAgent,
             sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             evaluations: pairData.evaluations
         };
         
         console.log('Submitting pair to backend:', submissionData);
+        console.log('Full pair data structure:', pairData);
         
         const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
@@ -324,11 +374,18 @@ async function submitPairToBackend(pairId) {
             body: JSON.stringify(submissionData)
         });
         
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
         if (response.ok) {
+            const responseText = await response.text();
+            console.log('Response text:', responseText);
             console.log('Pair submitted successfully to backend');
             showPairSubmissionStatus(true);
         } else {
-            console.error('Backend submission failed:', response.statusText);
+            const errorText = await response.text();
+            console.error('Backend submission failed:', response.status, response.statusText);
+            console.error('Error response:', errorText);
             showPairSubmissionStatus(false);
         }
         
@@ -870,7 +927,6 @@ async function submitToBackend(data) {
     // Deploy a Google Apps Script as web app and replace YOUR_SCRIPT_URL
     const response = await fetch('https://script.google.com/macros/s/AKfycbxDPp-Iyd1JKHbhsuuHmkbXK9hZViDXJ1TsrapktPWVW3QXzT5obkYzkJcOBWKn8wou/exec', {
         method: 'POST',
-        mode: 'no-cors',
         headers: {
             'Content-Type': 'application/json'
         },
