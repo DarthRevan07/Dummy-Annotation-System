@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GitHub Pages Image Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        img { max-width: 300px; max-height: 200px; border: 2px solid #ddd; margin: 10px; }
+        .success { border-color: green !important; }
+        .error { border-color: red !important; }
+        .log { background: #f5f5f5; padding: 10px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>GitHub Pages Image Loading Test</h1>
+    
+    <div class="test-section">
+        <h2>Direct Image Tests</h2>
+        <p>Testing various image path formats:</p>
+        
+        <div>
+            <h3>Test 1: ./pairs/Inc500Charts/sum3_ques2/pair1/1.png</h3>
+            <img src="./pairs/Inc500Charts/sum3_ques2/pair1/1.png" 
+                 onload="this.className='success'; this.nextElementSibling.textContent='✅ SUCCESS'"
+                 onerror="this.className='error'; this.nextElementSibling.textContent='❌ FAILED'">
+            <div>Loading...</div>
+        </div>
+        
+        <div>
+            <h3>Test 2: /Dummy-Annotation-System/pairs/Inc500Charts/sum3_ques2/pair1/1.png</h3>
+            <img src="/Dummy-Annotation-System/pairs/Inc500Charts/sum3_ques2/pair1/1.png" 
+                 onload="this.className='success'; this.nextElementSibling.textContent='✅ SUCCESS'"
+                 onerror="this.className='error'; this.nextElementSibling.textContent='❌ FAILED'">
+            <div>Loading...</div>
+        </div>
+        
+        <div>
+            <h3>Test 3: pairs/Inc500Charts/sum3_ques2/pair1/1.png</h3>
+            <img src="pairs/Inc500Charts/sum3_ques2/pair1/1.png" 
+                 onload="this.className='success'; this.nextElementSibling.textContent='✅ SUCCESS'"
+                 onerror="this.className='error'; this.nextElementSibling.textContent='❌ FAILED'">
+            <div>Loading...</div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>JavaScript Fetch Tests</h2>
+        <button onclick="testImagePaths()">Test Different Paths</button>
+        <div id="fetchResults" class="log">Click button to test...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Current Environment Info</h2>
+        <div class="log">
+            <div>Location: <span id="location"></span></div>
+            <div>Base URL: <span id="baseUrl"></span></div>
+            <div>Is GitHub Pages: <span id="isGitHub"></span></div>
+        </div>
+    </div>
+    
+    <script>
+        // Display environment info
+        document.getElementById('location').textContent = window.location.href;
+        document.getElementById('baseUrl').textContent = window.location.origin + window.location.pathname.replace('/github_pages_test.html', '');
+        document.getElementById('isGitHub').textContent = window.location.hostname.includes('github.io') ? 'Yes' : 'No';
+        
+        async function testImagePaths() {
+            const resultsDiv = document.getElementById('fetchResults');
+            resultsDiv.innerHTML = 'Testing image paths...\n\n';
+            
+            const testPaths = [
+                './pairs/Inc500Charts/sum3_ques2/pair1/1.png',
+                '/Dummy-Annotation-System/pairs/Inc500Charts/sum3_ques2/pair1/1.png',
+                'pairs/Inc500Charts/sum3_ques2/pair1/1.png'
+            ];
+            
+            for (const path of testPaths) {
+                try {
+                    const response = await fetch(path);
+                    const status = response.ok ? '✅ SUCCESS' : `❌ FAILED (${response.status})`;
+                    resultsDiv.innerHTML += `${path}: ${status}\n`;
+                } catch (error) {
+                    resultsDiv.innerHTML += `${path}: ❌ ERROR - ${error.message}\n`;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
