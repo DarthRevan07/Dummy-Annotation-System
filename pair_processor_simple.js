@@ -125,15 +125,17 @@ class PairProcessor {
     async processPairDirectory(dataset, summaryDir, pairDir) {
         const pairPath = `${this.basePath}/${dataset}/${summaryDir}/${pairDir}`;
         
+        console.log('Processing pair directory:', pairPath);
+        
         try {
             const images = await this.loadImagesFromDirectory(pairPath);
             
             if (images.length < 2) {
-                console.warn(`Pair directory ${pairPath} has less than 2 images, skipping`);
+                console.warn(`Pair directory ${pairPath} has ${images.length} images (need at least 2), skipping`);
                 return null;
             }
             
-            return {
+            const pairData = {
                 id: `${dataset}_${summaryDir}_${pairDir}`,
                 dataset: dataset,
                 summaryDir: summaryDir,
@@ -147,8 +149,16 @@ class PairProcessor {
                     pairNumber: parseInt(pairDir.replace('pair', ''))
                 }
             };
+            
+            console.log('Successfully created pair data:', {
+                id: pairData.id,
+                imageCount: images.length,
+                imageNames: images.map(img => img.name)
+            });
+            
+            return pairData;
         } catch (error) {
-            console.warn(`Error processing pair directory ${pairPath}:`, error);
+            console.error(`Error processing pair directory ${pairPath}:`, error);
             return null;
         }
     }
@@ -160,22 +170,40 @@ class PairProcessor {
         const images = [];
         const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg'];
         
-        // Try common image names
+        console.log('Loading images from directory:', dirPath);
+        
+        // Try common image names - expanded range and different patterns
         const testFiles = [];
-        for (let i = 1; i <= 10; i++) {
+        
+        // Pattern 1: 1.png, 2.png, etc. (expanded range to cover ATP numbers like 11, 9, 6, 8)
+        for (let i = 1; i <= 30; i++) {
             for (const ext of imageExtensions) {
                 testFiles.push(`${i}${ext}`);
             }
         }
         
+        // Pattern 2: chart1.png, chart2.png, etc.
+        for (let i = 1; i <= 15; i++) {
+            for (const ext of imageExtensions) {
+                testFiles.push(`chart${i}${ext}`);
+                testFiles.push(`image${i}${ext}`);
+            }
+        }
+        
+        console.log('Testing image files:', testFiles.slice(0, 10), '...');
+        
         for (const filename of testFiles) {
             const imagePath = `${dirPath}/${filename}`;
-            if (await this.checkImageExists(imagePath)) {
+            const exists = await this.checkImageExists(imagePath);
+            console.log(`Checking ${imagePath}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+            
+            if (exists) {
                 images.push({
                     name: filename,
                     path: imagePath,
-                    fullUrl: imagePath
+                    fullUrl: `${imagePath}?v=${Date.now()}` // Add cache-busting parameter
                 });
+                console.log('Added image:', imagePath);
             }
         }
         
@@ -186,6 +214,7 @@ class PairProcessor {
             return aNum - bNum;
         });
         
+        console.log(`Found ${images.length} images in ${dirPath}:`, images.map(img => img.name));
         return images;
     }
 
@@ -206,9 +235,15 @@ class PairProcessor {
      */
     async checkImageExists(imagePath) {
         try {
-            const response = await fetch(imagePath, { method: 'HEAD' });
-            return response.ok;
-        } catch {
+            // Use GET instead of HEAD as some servers don't support HEAD for static files
+            const response = await fetch(imagePath);
+            const exists = response.ok;
+            if (!exists && response.status !== 404) {
+                console.log(`Image check for ${imagePath}: status ${response.status}`);
+            }
+            return exists;
+        } catch (error) {
+            console.log(`Image check error for ${imagePath}:`, error.message);
             return false;
         }
     }
