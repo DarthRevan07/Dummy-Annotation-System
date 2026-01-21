@@ -3,6 +3,14 @@ let currentCategory = 'clutter';
 let currentPairId = null;
 let allPairEvaluations = {}; // Store evaluations per pair
 
+// Check backend configuration on page load
+function checkBackendStatus() {
+    const notification = document.getElementById('backendStatusNotification');
+    if (notification && !BACKEND_CONFIGURED) {
+        notification.style.display = 'block';
+    }
+}
+
 // Initialize pair evaluation when a new pair is loaded
 function initializePairEvaluation(pairId, pairMetadata) {
     currentPairId = pairId;
@@ -274,7 +282,9 @@ function submitEvaluation(category) {
 }
 
 // Google Apps Script endpoint configuration
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+// Replace with your actual deployed Web App URL after setting up the backend
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxDPp-Iyd1JKHbhsuuHmkbXK9hZViDXJ1TsrapktPWVW3QXzT5obkYzkJcOBWKn8wou/exec';
+const BACKEND_CONFIGURED = !GOOGLE_APPS_SCRIPT_URL.includes('AKfycbxDPp-Iyd1JKHbhsuuHmkbXK9hZViDXJ1TsrapktPWVW3QXzT5obkYzkJcOBWKn8wou');
 
 // Check if current pair is complete and auto-submit to backend
 async function checkAndSubmitCompletedPair() {
@@ -284,18 +294,23 @@ async function checkAndSubmitCompletedPair() {
     const isComplete = status.clutter && status.cognitive_load && status.interpretability && status.style;
     
     if (isComplete && !allPairEvaluations[currentPairId].submitted) {
-        // Mark as submitted to prevent duplicate submissions
+        // Mark as completed locally
         allPairEvaluations[currentPairId].submitted = true;
         allPairEvaluations[currentPairId].submittedAt = new Date().toISOString();
         
         // Save updated status to localStorage
         localStorage.setItem('pairEvaluations', JSON.stringify(allPairEvaluations));
         
-        // Submit to Google Apps Script
-        await submitPairToBackend(currentPairId);
+        // Submit to backend only if configured
+        if (BACKEND_CONFIGURED) {
+            await submitPairToBackend(currentPairId);
+        } else {
+            // Show local-only completion message
+            showPairSubmissionStatus('local');
+        }
         
         // Update UI to show submission status
-        showPairSubmissionStatus(true);
+        updateEvaluationStatus();
     }
 }
 
@@ -344,7 +359,7 @@ async function submitPairToBackend(pairId) {
 }
 
 // Show pair submission status in UI
-function showPairSubmissionStatus(success) {
+function showPairSubmissionStatus(status) {
     const statusDiv = document.getElementById('pairSubmissionStatus') || document.createElement('div');
     statusDiv.id = 'pairSubmissionStatus';
     statusDiv.style.cssText = `
@@ -357,15 +372,24 @@ function showPairSubmissionStatus(success) {
         font-weight: 600;
         z-index: 1000;
         animation: slideIn 0.3s ease;
-        ${success ? 
-            'background: linear-gradient(135deg, #28a745, #20c997);' : 
-            'background: linear-gradient(135deg, #dc3545, #c82333);'
-        }
+        max-width: 350px;
+        text-align: center;
     `;
     
-    statusDiv.innerHTML = success ? 
-        '✅ Pair evaluation submitted successfully!' : 
-        '❌ Submission failed - will retry later';
+    let message, bgColor;
+    if (status === true) {
+        message = '✅ Pair evaluation submitted to backend successfully!';
+        bgColor = 'linear-gradient(135deg, #28a745, #20c997)';
+    } else if (status === 'local') {
+        message = '💾 Pair evaluation saved locally! Backend not configured yet.';
+        bgColor = 'linear-gradient(135deg, #ffc107, #fd7e14)';
+    } else {
+        message = '❌ Backend submission failed - data saved locally';
+        bgColor = 'linear-gradient(135deg, #dc3545, #c82333)';
+    }
+    
+    statusDiv.style.background = bgColor;
+    statusDiv.innerHTML = message;
     
     document.body.appendChild(statusDiv);
     
@@ -676,7 +700,7 @@ function updatePairCompletionInfo() {
         `;
         
         let statusMessage = '';
-        if (isSubmitted) {
+        if (isSubmitted && BACKEND_CONFIGURED) {
             statusMessage = `
                 <div style="color: #0c5460; margin-bottom: 10px;">
                     ✅ <strong>Submitted to Backend!</strong> 
@@ -685,10 +709,26 @@ function updatePairCompletionInfo() {
                     </div>
                 </div>
             `;
-        } else if (isComplete) {
+        } else if (isSubmitted && !BACKEND_CONFIGURED) {
+            statusMessage = `
+                <div style="color: #856404; margin-bottom: 10px;">
+                    💾 <strong>Saved Locally!</strong> 
+                    <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+                        Completed at: ${new Date(pairData.submittedAt).toLocaleString()}<br>
+                        <a href="BACKEND_SETUP_GUIDE.md" target="_blank" style="color: #007bff; text-decoration: underline;">Setup backend to collect responses</a>
+                    </div>
+                </div>
+            `;
+        } else if (isComplete && BACKEND_CONFIGURED) {
             statusMessage = `
                 <div style="color: #28a745; margin-bottom: 10px;">
                     🚀 <strong>Complete! Auto-submitting to backend...</strong>
+                </div>
+            `;
+        } else if (isComplete && !BACKEND_CONFIGURED) {
+            statusMessage = `
+                <div style="color: #ffc107; margin-bottom: 10px;">
+                    ✅ <strong>Complete! Saved locally.</strong>
                 </div>
             `;
         }
@@ -700,7 +740,7 @@ function updatePairCompletionInfo() {
             ${statusMessage}
             ${!isComplete ? `
                 <div style="font-size: 14px; opacity: 0.8;">
-                    Complete all ${total} categories to auto-submit to backend
+                    Complete all ${total} categories to ${BACKEND_CONFIGURED ? 'auto-submit to backend' : 'save evaluation locally'}
                 </div>
             ` : ''}
         `;
@@ -1046,4 +1086,9 @@ document.addEventListener('keydown', function(event) {
         event.preventDefault();
         showCategory('style');
     }
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkBackendStatus();
 });
