@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Style Form</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Style Evaluation Debug Test</h2>
+        
+        <!-- Style Form - Exact copy from evaluation.html -->
+        <div class="question-form" id="styleForm" style="display: block;">
+            <div class="master-question">
+                <h3 id="master-question-title-style">Master Question: Style</h3>
+                <p id="master-question-content-style">Which chart has better visual style (color scheme, typography, layout)?</p>
+            </div>
+
+            <div class="chart-comparison">
+                <div class="comparison-options">
+                    <label>
+                        <input type="radio" name="primary_style" value="chart_a">
+                        Chart A has better visual style
+                    </label>
+                    <label>
+                        <input type="radio" name="primary_style" value="chart_b">
+                        Chart B has better visual style
+                    </label>
+                    <label>
+                        <input type="radio" name="primary_style" value="similar">
+                        Similar visual style quality
+                    </label>
+                </div>
+            </div>
+
+            <div class="rating-section">
+                <div class="chart-rating">
+                    <h4>Rate Chart A's Visual Style:</h4>
+                    <div class="rating-options">
+                        <label><input type="radio" name="chart_a_style" value="1"> 1 - Poor visual style</label>
+                        <label><input type="radio" name="chart_a_style" value="2"> 2 - Below average style</label>
+                        <label><input type="radio" name="chart_a_style" value="3"> 3 - Good visual style</label>
+                        <label><input type="radio" name="chart_a_style" value="4"> 4 - Excellent visual style</label>
+                    </div>
+                </div>
+
+                <div class="chart-rating">
+                    <h4>Rate Chart B's Visual Style:</h4>
+                    <div class="rating-options">
+                        <label><input type="radio" name="chart_b_style" value="1"> 1 - Poor visual style</label>
+                        <label><input type="radio" name="chart_b_style" value="2"> 2 - Below average style</label>
+                        <label><input type="radio" name="chart_b_style" value="3"> 3 - Good visual style</label>
+                        <label><input type="radio" name="chart_b_style" value="4"> 4 - Excellent visual style</label>
+                    </div>
+                </div>
+
+                <div class="confidence-rating">
+                    <h4>How confident are you in your evaluation?</h4>
+                    <div class="rating-options">
+                        <label><input type="radio" name="confidence_style" value="1"> 1 - Not confident</label>
+                        <label><input type="radio" name="confidence_style" value="2"> 2 - Somewhat confident</label>
+                        <label><input type="radio" name="confidence_style" value="3"> 3 - Moderately confident</label>
+                        <label><input type="radio" name="confidence_style" value="4"> 4 - Very confident</label>
+                        <label><input type="radio" name="confidence_style" value="5"> 5 - Extremely confident</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rationale-section">
+                <h4>Please explain your reasoning:</h4>
+                <textarea id="rationale_style" name="rationale" rows="4" placeholder="Explain why you made this evaluation..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button class="save-btn" onclick="testSave()">Save Responses</button>
+                <button class="submit-btn" onclick="testSubmit()">Submit Evaluation</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testSave() {
+            alert('Save button clicked!');
+            console.log('Save function called');
+        }
+        
+        function testSubmit() {
+            alert('Submit button clicked!');
+            console.log('Submit function called');
+        }
+    </script>
+</body>
+</html>

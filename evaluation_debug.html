@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug { background: #f0f0f0; padding: 15px; margin: 10px 0; border-left: 4px solid #333; }
+        .image-test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .image-test img { max-width: 400px; margin: 10px; border: 2px solid #ddd; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        button { padding: 10px 20px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Evaluation System Debug</h1>
+    
+    <div class="debug">
+        <h2>URL Parameters</h2>
+        <div id="urlParams"></div>
+    </div>
+    
+    <div class="debug">
+        <h2>Pair Processor Results</h2>
+        <button onclick="runDebugTest()">Run Full Test</button>
+        <div id="processorResults"></div>
+    </div>
+    
+    <div class="debug">
+        <h2>Image Loading Test</h2>
+        <div id="imageTest"></div>
+    </div>
+    
+    <script src="pair_processor_simple.js"></script>
+    <script>
+        // Show URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        document.getElementById('urlParams').innerHTML = 
+            `Dataset: ${urlParams.get('dataset') || 'not set'}<br>` +
+            `Summary: ${urlParams.get('summary') || 'not set'}<br>` +
+            `Question: ${urlParams.get('question') || 'not set'}`;
+        
+        async function runDebugTest() {
+            const resultsDiv = document.getElementById('processorResults');
+            const imageDiv = document.getElementById('imageTest');
+            
+            resultsDiv.innerHTML = '<h3>Initializing Pair Processor...</h3>';
+            
+            try {
+                const processor = new PairProcessor();
+                await processor.initialize(urlParams);
+                
+                resultsDiv.innerHTML += `<p class="success">✓ Found ${processor.allPairs.length} pairs</p>`;
+                
+                if (processor.allPairs.length > 0) {
+                    const firstPair = processor.allPairs[0];
+                    resultsDiv.innerHTML += 
+                        `<h4>First Pair Details:</h4>` +
+                        `<p><strong>ID:</strong> ${firstPair.id}</p>` +
+                        `<p><strong>Path:</strong> ${firstPair.pairPath}</p>` +
+                        `<p><strong>Images:</strong> ${firstPair.images.length}</p>`;
+                    
+                    // Show each image
+                    imageDiv.innerHTML = '<h3>Testing Image Loading:</h3>';
+                    for (let i = 0; i < firstPair.images.length; i++) {
+                        const img = firstPair.images[i];
+                        resultsDiv.innerHTML += 
+                            `<p><strong>Image ${i + 1}:</strong> ${img.name} at ${img.fullUrl}</p>`;
+                        
+                        imageDiv.innerHTML += `
+                            <div class="image-test">
+                                <h4>Chart ${String.fromCharCode(65 + i)}: ${img.name}</h4>
+                                <p>URL: ${img.fullUrl}</p>
+                                <img src="${img.fullUrl}" 
+                                     onload="this.nextElementSibling.textContent = 'SUCCESS: Image loaded'; this.style.borderColor = 'green'" 
+                                     onerror="this.nextElementSibling.textContent = 'ERROR: Failed to load ' + this.src; this.style.borderColor = 'red'">
+                                <p class="status">Loading...</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    resultsDiv.innerHTML += '<p class="error">✗ No pairs found</p>';
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `<p class="error">✗ Error: ${error.message}</p>`;
+                console.error('Debug test error:', error);
+            }
+        }
+        
+        // Auto-run test when page loads
+        window.addEventListener('load', runDebugTest);
+    </script>
+</body>
+</html>

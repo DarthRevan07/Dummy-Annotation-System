@@ -1,33 +1,177 @@
-# Backend Setup Guide for Chart Evaluation System
+# Auto-Submission Backend Setup Guide
 
 ## 🎯 Overview
-This guide provides multiple options to collect user submissions from your hosted evaluation system.
+**NEW**: The system now automatically submits evaluation data to your backend as soon as users complete all 4 categories for each chart pair. No manual submission required!
 
-## 📋 What Data is Collected
-Each submission includes:
-- **User ID**: Unique identifier for each evaluator
-- **Session ID**: Unique per browser session
-- **Pair Metadata**: Dataset, summary, question info
-- **Complete Evaluations**: All 4 categories (Visual Clutter, Cognitive Load, Interpretability, Style)
-- **Timestamps**: Start time, completion time, submission time
-- **System Info**: Browser details, screen resolution
+## 📋 How Auto-Submission Works
+1. User completes all 4 categories (Clutter, Cognitive Load, Interpretability, Style) for a pair
+2. System automatically sends data to your Google Apps Script endpoint
+3. User sees success/failure notification 
+4. User can immediately start next pair
+5. Real-time data collection in your Google Sheets
 
----
+## 🚀 Google Apps Script Setup (Recommended)
 
-## 🚀 **Option 1: Formspree (Recommended - Easiest)**
+**Setup Time**: 10 minutes | **Cost**: Free
 
-**Setup Time**: 5 minutes | **Cost**: Free (500 submissions/month)
+### Step 1: Create Google Apps Script
 
-1. Go to [formspree.io](https://formspree.io)
-2. Create account and new form
-3. Copy your form ID (e.g., `xpznvqjz`)
-4. In your `script_static_updated.js`, uncomment and update:
+1. Go to [script.google.com](https://script.google.com)
+2. Click **"New Project"**
+3. Replace default code with:
 
 ```javascript
-// Uncomment this section in submitToBackend function:
-const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
-    method: 'POST',
-    headers: {
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    
+    // Your Google Sheets ID - replace with actual ID
+    const spreadsheetId = 'REPLACE_WITH_YOUR_SHEET_ID';
+    const sheet = SpreadsheetApp.openById(spreadsheetId).getActiveSheet();
+    
+    // Create headers if first submission
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, 22).setValues([[
+        'Timestamp', 'Pair ID', 'Dataset', 'Question Set', 'Pair Number',
+        'Clutter Primary', 'Clutter Chart A', 'Clutter Chart B', 'Clutter Rationale',
+        'Cognitive Primary', 'Cognitive Chart A', 'Cognitive Chart B', 'Cognitive Rationale', 
+        'Interpretability Primary', 'Interpretability Chart A', 'Interpretability Chart B', 'Interpretability Rationale',
+        'Style Primary', 'Style Chart A', 'Style Chart B', 'Style Confidence', 'Style Rationale'
+      ]]);
+    }
+    
+    // Extract evaluation data
+    const evals = data.evaluations;
+    const row = [
+      data.timestamp, data.pairId, data.dataset, data.questionSet, data.pairNumber,
+      
+      // Clutter evaluations
+      evals.clutter?.responses?.primary_clutter || '',
+      evals.clutter?.responses?.chart_a_clutter || '',
+      evals.clutter?.responses?.chart_b_clutter || '',
+      evals.clutter?.responses?.rationale_clutter || '',
+      
+      // Cognitive Load evaluations
+      evals.cognitive_load?.responses?.primary_cognitive_load || '',
+      evals.cognitive_load?.responses?.chart_a_cognitive_load || '',
+      evals.cognitive_load?.responses?.chart_b_cognitive_load || '',
+      evals.cognitive_load?.responses?.rationale_cognitive_load || '',
+      
+      // Interpretability evaluations
+      evals.interpretability?.responses?.primary_interpretability || '',
+      evals.interpretability?.responses?.chart_a_interpretability || '',
+      evals.interpretability?.responses?.chart_b_interpretability || '',
+      evals.interpretability?.responses?.rationale_interpretability || '',
+      
+      // Style evaluations
+      evals.style?.responses?.primary_style || '',
+      evals.style?.responses?.chart_a_style || '',
+      evals.style?.responses?.chart_b_style || '',
+      evals.style?.responses?.confidence_style || '',
+      evals.style?.responses?.rationale_style || ''
+    ];
+    
+    // Add data to sheet
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+    
+    // Optional email notification
+    // MailApp.sendEmail({
+    //   to: 'your-email@domain.com',
+    //   subject: 'New Chart Evaluation',
+    //   body: `New evaluation: ${data.dataset} - Pair ${data.pairNumber}`
+    // });
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true, message: 'Data saved successfully'
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false, error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+```
+
+### Step 2: Deploy Script as Web App
+
+1. Click **"Deploy"** → **"New Deployment"**
+2. Choose **"Web app"** as type
+3. Set **Execute as**: "Me"
+4. Set **Who has access**: "Anyone" ⚠️ (Required for your website)
+5. Click **"Deploy"**
+6. **Copy the Web App URL** (looks like: `https://script.google.com/macros/s/ABC123.../exec`)
+
+### Step 3: Create Google Sheet
+
+1. Create new Google Sheet
+2. Copy Sheet ID from URL (long string between `/d/` and `/edit`)
+3. Replace `REPLACE_WITH_YOUR_SHEET_ID` in the script above
+
+### Step 4: Update Your Website
+
+In `script_static_updated.js`, replace:
+```javascript
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+```
+With your actual deployed Web App URL.
+
+## 📊 Data You'll Receive
+
+Each completed pair creates one row with:
+
+### Metadata
+- **Timestamp**: When evaluation was completed  
+- **Pair ID**: Unique identifier for the specific chart pair
+- **Dataset**: fifa18_clean, Inc5000, or ATP
+- **Question Set**: Which question version (sum1_ques1, sum3_ques2, etc.)
+- **Pair Number**: Which pair within the question set
+
+### Evaluations (All 4 Categories)
+- **Primary Comparisons**: Which chart was rated better
+- **Individual Ratings**: 1-4 scale ratings for each chart
+- **Rationales**: Text explanations from users
+- **Confidence**: 1-5 scale confidence ratings (Style category)
+
+## ✅ Testing Your Setup
+
+1. Complete all 4 categories for any chart pair
+2. Look for green "✅ Pair evaluation submitted successfully!" notification
+3. Check your Google Sheet - new row should appear within seconds
+4. Verify all columns have data
+
+## 🔧 Troubleshooting
+
+### No Data Appearing
+- Check Google Apps Script deployment settings
+- Verify "Anyone" has access to the web app
+- Check browser console for errors
+- Ensure Google Sheet ID is correct in script
+
+### Red Error Notification
+- Check Apps Script logs for errors
+- Verify JSON parsing in the script
+- Ensure Google Sheet exists and is accessible
+
+### Network Errors
+- Check if CORS is blocking requests
+- Verify Web App URL is correct
+- Test with browser developer tools
+
+## 🎉 Benefits of Auto-Submission
+
+✅ **Real-time data collection** - No waiting until end of session
+✅ **No data loss** - Each pair saved immediately  
+✅ **Better user experience** - Continuous workflow
+✅ **Scalable** - Handle multiple users simultaneously
+✅ **Automatic** - No manual intervention needed
+
+## 📈 Monitoring Responses
+
+- **Google Sheets**: Real-time view of all submissions
+- **Apps Script Logs**: Error tracking and debugging
+- **Email Notifications**: Optional alerts for each submission
+- **Browser Console**: Client-side error monitoring
         'Content-Type': 'application/json'
     },
     body: JSON.stringify({

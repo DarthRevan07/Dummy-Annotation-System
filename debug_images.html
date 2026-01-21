@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Image Loading</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .image-test { display: flex; flex-wrap: wrap; gap: 10px; }
+        .image-test img { max-width: 200px; max-height: 200px; border: 1px solid #333; }
+        .log { background: #f0f0f0; padding: 10px; font-family: monospace; white-space: pre-wrap; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Image Loading Debug Tool</h1>
+    
+    <div class="debug-section">
+        <h2>Manual Image Tests</h2>
+        <div class="image-test">
+            <div>
+                <h4>Inc500Charts/sum3_ques2/pair1/1.png</h4>
+                <img src="./pairs/Inc500Charts/sum3_ques2/pair1/1.png" 
+                     onerror="this.style.border='2px solid red'; this.nextElementSibling.textContent='FAILED'" 
+                     onload="this.style.border='2px solid green'; this.nextElementSibling.textContent='SUCCESS'">
+                <div class="status">Loading...</div>
+            </div>
+            <div>
+                <h4>Inc500Charts/sum3_ques2/pair1/2.png</h4>
+                <img src="./pairs/Inc500Charts/sum3_ques2/pair1/2.png" 
+                     onerror="this.style.border='2px solid red'; this.nextElementSibling.textContent='FAILED'" 
+                     onload="this.style.border='2px solid green'; this.nextElementSibling.textContent='SUCCESS'">
+                <div class="status">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Pair Processor Debug</h2>
+        <button onclick="testPairProcessor()">Test Pair Processor</button>
+        <div id="processorResults" class="log"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Direct File Tests</h2>
+        <button onclick="testDirectFiles()">Test Direct File Access</button>
+        <div id="fileResults" class="log"></div>
+    </div>
+
+    <script src="pair_processor_simple.js"></script>
+    <script>
+        // Log function to display results
+        function log(message, type = 'info') {
+            console.log(message);
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            return `<span style="color: ${color}">${message}</span>\n`;
+        }
+
+        // Test the pair processor
+        async function testPairProcessor() {
+            const resultsDiv = document.getElementById('processorResults');
+            resultsDiv.innerHTML = 'Testing pair processor...\n';
+            
+            try {
+                const processor = new PairProcessor();
+                
+                // Test with URL params matching Inc500Charts sum3_ques2
+                const urlParams = new URLSearchParams('dataset=Inc500Charts&summary=3&question=2');
+                
+                resultsDiv.innerHTML += log('Initializing processor...');
+                await processor.initialize(urlParams);
+                
+                resultsDiv.innerHTML += log(`Found ${processor.allPairs.length} pairs total`, 'success');
+                
+                for (const pair of processor.allPairs) {
+                    resultsDiv.innerHTML += log(`Pair: ${pair.id}`);
+                    resultsDiv.innerHTML += log(`  Images: ${pair.images.length}`);
+                    for (const img of pair.images) {
+                        resultsDiv.innerHTML += log(`    - ${img.name} at ${img.path}`);
+                    }
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML += log(`Error: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        // Test direct file access
+        async function testDirectFiles() {
+            const resultsDiv = document.getElementById('fileResults');
+            resultsDiv.innerHTML = 'Testing direct file access...\n';
+            
+            const testFiles = [
+                './pairs/Inc500Charts/sum3_ques2/pair1/1.png',
+                './pairs/Inc500Charts/sum3_ques2/pair1/2.png',
+                './pairs/Inc500Charts/sum3_ques2/pair2/10.png',
+                './pairs/Inc500Charts/sum3_ques2/pair2/8.png',
+                './pairs/Inc500Charts/sum3_ques2/pair3/14.png',
+                './pairs/Inc500Charts/sum3_ques2/pair3/15.png'
+            ];
+            
+            for (const filePath of testFiles) {
+                try {
+                    const response = await fetch(filePath, { method: 'HEAD' });
+                    const status = response.ok ? 'EXISTS' : `FAILED (${response.status})`;
+                    const type = response.ok ? 'success' : 'error';
+                    resultsDiv.innerHTML += log(`${filePath}: ${status}`, type);
+                } catch (error) {
+                    resultsDiv.innerHTML += log(`${filePath}: ERROR - ${error.message}`, 'error');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

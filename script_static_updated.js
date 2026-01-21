@@ -153,6 +153,9 @@ function saveCognitiveResponses() {
     // Update UI
     updateEvaluationStatus();
     
+    // Check if pair is complete and auto-submit
+    checkAndSubmitCompletedPair();
+    
     alert('Cognitive Load responses saved successfully!');
 }
 
@@ -195,6 +198,9 @@ function saveInterpretabilityResponses() {
     
     // Update UI
     updateEvaluationStatus();
+    
+    // Check if pair is complete and auto-submit
+    checkAndSubmitCompletedPair();
     
     alert('Interpretability responses saved successfully!');
 }
@@ -243,6 +249,9 @@ function saveStyleResponses() {
     // Update UI
     updateEvaluationStatus();
     
+    // Check if pair is complete and auto-submit
+    checkAndSubmitCompletedPair();
+    
     alert('Style responses saved successfully!');
 }
 
@@ -262,6 +271,110 @@ function submitEvaluation(category) {
             saveStyleResponses();
             break;
     }
+}
+
+// Google Apps Script endpoint configuration
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+
+// Check if current pair is complete and auto-submit to backend
+async function checkAndSubmitCompletedPair() {
+    if (!currentPairId || !allPairEvaluations[currentPairId]) return;
+    
+    const status = allPairEvaluations[currentPairId].completionStatus;
+    const isComplete = status.clutter && status.cognitive_load && status.interpretability && status.style;
+    
+    if (isComplete && !allPairEvaluations[currentPairId].submitted) {
+        // Mark as submitted to prevent duplicate submissions
+        allPairEvaluations[currentPairId].submitted = true;
+        allPairEvaluations[currentPairId].submittedAt = new Date().toISOString();
+        
+        // Save updated status to localStorage
+        localStorage.setItem('pairEvaluations', JSON.stringify(allPairEvaluations));
+        
+        // Submit to Google Apps Script
+        await submitPairToBackend(currentPairId);
+        
+        // Update UI to show submission status
+        showPairSubmissionStatus(true);
+    }
+}
+
+// Submit completed pair to Google Apps Script backend
+async function submitPairToBackend(pairId) {
+    try {
+        const pairData = allPairEvaluations[pairId];
+        const submissionData = {
+            timestamp: new Date().toISOString(),
+            pairId: pairId,
+            dataset: pairData.dataset,
+            questionSet: pairData.questionSet,
+            pairNumber: pairData.pairNumber,
+            userAgent: navigator.userAgent,
+            sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            evaluations: pairData.evaluations
+        };
+        
+        console.log('Submitting pair to backend:', submissionData);
+        
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(submissionData)
+        });
+        
+        if (response.ok) {
+            console.log('Pair submitted successfully to backend');
+            showPairSubmissionStatus(true);
+        } else {
+            console.error('Backend submission failed:', response.statusText);
+            showPairSubmissionStatus(false);
+        }
+        
+    } catch (error) {
+        console.error('Error submitting to backend:', error);
+        showPairSubmissionStatus(false);
+        
+        // Mark as not submitted so it can be retried
+        allPairEvaluations[pairId].submitted = false;
+        delete allPairEvaluations[pairId].submittedAt;
+        localStorage.setItem('pairEvaluations', JSON.stringify(allPairEvaluations));
+    }
+}
+
+// Show pair submission status in UI
+function showPairSubmissionStatus(success) {
+    const statusDiv = document.getElementById('pairSubmissionStatus') || document.createElement('div');
+    statusDiv.id = 'pairSubmissionStatus';
+    statusDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+        ${success ? 
+            'background: linear-gradient(135deg, #28a745, #20c997);' : 
+            'background: linear-gradient(135deg, #dc3545, #c82333);'
+        }
+    `;
+    
+    statusDiv.innerHTML = success ? 
+        '✅ Pair evaluation submitted successfully!' : 
+        '❌ Submission failed - will retry later';
+    
+    document.body.appendChild(statusDiv);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+        if (statusDiv.parentNode) {
+            statusDiv.remove();
+        }
+    }, 4000);
 }
 
 // Load saved responses for current pair and category
@@ -527,10 +640,12 @@ async function submitAllEvaluationsToBackend() {
 function updatePairCompletionInfo() {
     if (!currentPairId || !allPairEvaluations[currentPairId]) return;
     
-    const status = allPairEvaluations[currentPairId].completionStatus;
+    const pairData = allPairEvaluations[currentPairId];
+    const status = pairData.completionStatus;
     const completed = Object.values(status).filter(Boolean).length;
     const total = Object.keys(status).length;
     const isComplete = completed === total;
+    const isSubmitted = pairData.submitted;
     
     // Add completion info to dataset info section
     const datasetInfo = document.querySelector('.dataset-info');
@@ -542,43 +657,52 @@ function updatePairCompletionInfo() {
             datasetInfo.appendChild(completionInfo);
         }
         
+        let bgColor, borderColor, textColor;
+        if (isSubmitted) {
+            bgColor = '#d1ecf1'; borderColor = '#bee5eb'; textColor = '#0c5460';
+        } else if (isComplete) {
+            bgColor = '#d4edda'; borderColor = '#c3e6cb'; textColor = '#155724';
+        } else {
+            bgColor = '#fff3cd'; borderColor = '#ffeeba'; textColor = '#856404';
+        }
+        
         completionInfo.style.cssText = `
             margin-top: 10px;
             padding: 15px;
-            background: ${isComplete ? '#d4edda' : '#fff3cd'};
-            border: 1px solid ${isComplete ? '#c3e6cb' : '#ffeeba'};
+            background: ${bgColor};
+            border: 1px solid ${borderColor};
             border-radius: 8px;
-            color: ${isComplete ? '#155724' : '#856404'};
+            color: ${textColor};
         `;
+        
+        let statusMessage = '';
+        if (isSubmitted) {
+            statusMessage = `
+                <div style="color: #0c5460; margin-bottom: 10px;">
+                    ✅ <strong>Submitted to Backend!</strong> 
+                    <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+                        Submitted at: ${new Date(pairData.submittedAt).toLocaleString()}
+                    </div>
+                </div>
+            `;
+        } else if (isComplete) {
+            statusMessage = `
+                <div style="color: #28a745; margin-bottom: 10px;">
+                    🚀 <strong>Complete! Auto-submitting to backend...</strong>
+                </div>
+            `;
+        }
         
         completionInfo.innerHTML = `
             <div style="margin-bottom: 10px;">
                 <strong>Evaluation Progress:</strong> ${completed}/${total} categories completed
             </div>
-            ${isComplete ? `
-                <div style="color: #28a745; margin-bottom: 15px;">
-                    ✓ All evaluations complete for this pair!
-                </div>
-                <button onclick="submitCompleteEvaluation()" style="
-                    background: linear-gradient(135deg, #28a745, #20c997);
-                    color: white;
-                    border: none;
-                    padding: 12px 25px;
-                    border-radius: 25px;
-                    cursor: pointer;
-                    font-weight: 600;
-                    font-size: 16px;
-                    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-                    transition: all 0.3s ease;
-                " onmouseover="this.style.transform='translateY(-2px)'" 
-                   onmouseout="this.style.transform='translateY(0)'">
-                    🚀 Submit Complete Evaluation
-                </button>
-            ` : `
+            ${statusMessage}
+            ${!isComplete ? `
                 <div style="font-size: 14px; opacity: 0.8;">
-                    Complete all ${total} categories to submit final evaluation
+                    Complete all ${total} categories to auto-submit to backend
                 </div>
-            `}
+            ` : ''}
         `;
     }
 }
