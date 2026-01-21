@@ -406,8 +406,117 @@ function updateEvaluationStatus() {
         }
     });
     
-    // Update pair info with completion status
+    // Update pair completion info
     updatePairCompletionInfo();
+    
+    // Check if all evaluations across all pairs are complete
+    checkForOverallCompletion();
+}
+
+// Check for overall completion and show completion button
+function checkForOverallCompletion() {
+    const totalPairs = currentPairProcessor ? currentPairProcessor.allPairs.length : 0;
+    if (totalPairs === 0) return;
+    
+    const completedPairs = Object.keys(allPairEvaluations).filter(pairId => {
+        const evaluation = allPairEvaluations[pairId];
+        return evaluation.completionStatus.clutter && evaluation.completionStatus.cognitive_load && 
+               evaluation.completionStatus.interpretability && evaluation.completionStatus.style;
+    }).length;
+    
+    // Show completion button if all pairs are done
+    if (completedPairs === totalPairs) {
+        showCompletionButton();
+    }
+}
+
+// Show completion button when all evaluations are done
+function showCompletionButton() {
+    if (document.getElementById('completionButton')) return; // Already exists
+    
+    const navContainer = document.getElementById('pairNavigationContainer');
+    if (navContainer) {
+        const completionDiv = document.createElement('div');
+        completionDiv.id = 'completionButton';
+        completionDiv.style.cssText = `
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            animation: slideIn 0.5s ease-out;
+        `;
+        
+        completionDiv.innerHTML = `
+            <h3 style="color: white; margin: 0 0 15px 0;">🎉 All Evaluations Complete!</h3>
+            <p style="color: white; margin: 0 0 15px 0;">You have successfully evaluated all chart pairs for this dataset.</p>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="finalSubmitAndReturn()" style="
+                    background: white;
+                    color: #28a745;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-weight: 700;
+                    font-size: 16px;
+                    transition: all 0.3s ease;
+                    min-width: 200px;
+                ">📋 Submit All & Return to Welcome</button>
+                <button onclick="exportAllPairEvaluations()" style="
+                    background: rgba(255,255,255,0.2);
+                    color: white;
+                    border: 2px solid white;
+                    padding: 12px 25px;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    font-size: 16px;
+                    transition: all 0.3s ease;
+                    min-width: 150px;
+                ">💾 Export Results</button>
+            </div>
+        `;
+        
+        navContainer.appendChild(completionDiv);
+    }
+}
+
+// Final submission and return to welcome
+function finalSubmitAndReturn() {
+    const totalEvaluations = Object.keys(allPairEvaluations).length;
+    const result = confirm(`Submit all ${totalEvaluations} pair evaluations and return to welcome page?`);
+    
+    if (result) {
+        // Try to submit to backend
+        submitAllEvaluationsToBackend();
+        
+        // Show success message and redirect
+        setTimeout(() => {
+            alert('All evaluations submitted successfully! Returning to welcome page.');
+            window.location.href = 'index.html';
+        }, 1000);
+    }
+}
+
+// Submit all evaluations to backend
+async function submitAllEvaluationsToBackend() {
+    try {
+        const submissionData = {
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            totalPairs: Object.keys(allPairEvaluations).length,
+            evaluations: allPairEvaluations
+        };
+        
+        // Use the same backend submission as individual evaluations
+        await submitToBackend(submissionData, 'complete_session');
+        
+    } catch (error) {
+        console.error('Backend submission failed:', error);
+    }
 }
 
 // Update pair completion information

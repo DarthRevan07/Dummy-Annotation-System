@@ -14,25 +14,50 @@ class PairProcessor {
 
     /**
      * Initialize the processor by scanning all pair directories
+     * @param {Object} urlParams - URL parameters for filtering
      */
-    async initialize() {
+    async initialize(urlParams = null) {
         console.log('Initializing Pair Processor...');
-        await this.scanAllPairs();
+        await this.scanAllPairs(urlParams);
         this.isInitialized = true;
         console.log(`Found ${this.allPairs.length} total pairs across all datasets`);
     }
 
     /**
      * Scan all table directories and their subdirectories for pairs
+     * @param {Object} urlParams - URL parameters for filtering
      */
-    async scanAllPairs() {
-        const tableDirectories = ['ATP_rendered_charts', 'fifa18_rendered_charts', 'Inc500Charts'];
+    async scanAllPairs(urlParams = null) {
+        let tableDirectories = ['ATP_rendered_charts', 'fifa18_rendered_charts', 'Inc500Charts'];
+        
+        // Filter by dataset parameter if provided
+        if (urlParams && urlParams.get('dataset')) {
+            const selectedDataset = urlParams.get('dataset');
+            tableDirectories = tableDirectories.filter(dir => dir === selectedDataset);
+            console.log(`Filtering for dataset: ${selectedDataset}`);
+        }
         
         for (const tableDir of tableDirectories) {
             try {
                 const summaryDirs = await this.getSummaryDirectories(tableDir);
                 
                 for (const summaryDir of summaryDirs) {
+                    // Filter by summary parameter if provided
+                    if (urlParams && urlParams.get('summary')) {
+                        const selectedSummary = urlParams.get('summary');
+                        if (!summaryDir.includes(`sum${selectedSummary}_`)) {
+                            continue;
+                        }
+                    }
+                    
+                    // Filter by question parameter if provided  
+                    if (urlParams && urlParams.get('question')) {
+                        const selectedQuestion = urlParams.get('question');
+                        if (!summaryDir.includes(`_ques${selectedQuestion}_`)) {
+                            continue;
+                        }
+                    }
+                    
                     const pairDirs = await this.getPairDirectories(tableDir, summaryDir);
                     
                     for (const pairDir of pairDirs) {

@@ -833,15 +833,17 @@
         async function initializeIntegratedPairs() {
             try {
                 console.log('Initializing integrated pair system...');
+                const urlParams = new URLSearchParams(window.location.search);
                 currentPairProcessor = new PairProcessor();
-                await currentPairProcessor.initialize();
+                await currentPairProcessor.initialize(urlParams);
                 
                 if (currentPairProcessor.allPairs.length > 0) {
                     console.log(`Found ${currentPairProcessor.allPairs.length} pairs`);
                     loadCurrentPair();
                     addNavigationControls();
+                    addReturnToWelcomeButton();
                 } else {
-                    console.log('No pairs found');
+                    console.log('No pairs found for the selected criteria');
                     showNoPairsMessage();
                 }
             } catch (error) {
@@ -929,9 +931,48 @@
             }
         }
 
+        // Add return to welcome button
+        function addReturnToWelcomeButton() {
+            const header = document.querySelector('header .container');
+            if (header && !document.getElementById('returnToWelcome')) {
+                const returnBtn = document.createElement('button');
+                returnBtn.id = 'returnToWelcome';
+                returnBtn.innerHTML = '🏠 Back to Welcome';
+                returnBtn.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 20px;
+                    background: linear-gradient(135deg, #28a745, #20c997);
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    z-index: 1000;
+                    box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
+                    transition: all 0.3s ease;
+                `;
+                returnBtn.onclick = function() {
+                    if (confirm('Are you sure you want to return to the welcome page? Any unsaved progress will be lost.')) {
+                        window.location.href = 'index.html';
+                    }
+                };
+                returnBtn.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.4)';
+                });
+                returnBtn.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 2px 10px rgba(40, 167, 69, 0.3)';
+                });
+                document.body.appendChild(returnBtn);
+            }
+        }
+        
         // Add navigation controls to the page
         function addNavigationControls() {
-            if (currentPairProcessor.allPairs.length <= 1) return;
+            // Always add navigation controls, even for single pairs to show context
             
             const navContainer = document.getElementById('pairNavigationContainer');
             if (navContainer) {
@@ -949,6 +990,13 @@
                     border: 1px solid #e9ecef;
                 `;
                 
+                const totalPairs = currentPairProcessor.allPairs.length;
+                const completedPairs = Object.keys(allPairEvaluations).filter(pairId => {
+                    const evaluation = allPairEvaluations[pairId];
+                    return evaluation.completionStatus.clutter && evaluation.completionStatus.cognitive_load && 
+                           evaluation.completionStatus.interpretability && evaluation.completionStatus.style;
+                }).length;
+                
                 navControls.innerHTML = `
                     <button id="prevPair" onclick="navigatePair(-1)" style="
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -958,16 +1006,20 @@
                         border-radius: 25px;
                         cursor: pointer;
                         font-weight: 600;
+                        transition: all 0.3s ease;
                     ">← Previous Pair</button>
                     
-                    <span id="pairCounter" style="
-                        background: #fff;
-                        padding: 8px 16px;
-                        border-radius: 20px;
-                        font-weight: 600;
-                        color: #2c3e50;
-                        border: 2px solid #e9ecef;
-                    ">Pair ${currentPairIndex + 1} of ${currentPairProcessor.allPairs.length}</span>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                        <span id="pairCounter" style="
+                            background: #fff;
+                            padding: 8px 16px;
+                            border-radius: 20px;
+                            font-weight: 600;
+                            color: #2c3e50;
+                            border: 2px solid #e9ecef;
+                        ">Pair ${currentPairIndex + 1} of ${totalPairs}</span>
+                        <small style="color: #6c757d; font-size: 11px;">Completed: ${completedPairs}/${totalPairs}</small>
+                    </div>
                     
                     <button id="nextPair" onclick="navigatePair(1)" style="
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -977,6 +1029,7 @@
                         border-radius: 25px;
                         cursor: pointer;
                         font-weight: 600;
+                        transition: all 0.3s ease;
                     ">Next Pair →</button>
                     
                     <button onclick="exportCurrentPairEvaluations()" style="
@@ -988,6 +1041,7 @@
                         cursor: pointer;
                         font-weight: 600;
                         font-size: 12px;
+                        transition: all 0.3s ease;
                     ">📤 Export This Pair</button>
                     
                     <button onclick="exportAllPairEvaluations()" style="
@@ -999,6 +1053,7 @@
                         cursor: pointer;
                         font-weight: 600;
                         font-size: 12px;
+                        transition: all 0.3s ease;
                     ">📦 Export All Pairs</button>
                 `;
                 
@@ -1036,7 +1091,24 @@
             }
             
             if (counter) {
-                counter.textContent = `Pair ${currentPairIndex + 1} of ${currentPairProcessor.allPairs.length}`;
+                const totalPairs = currentPairProcessor.allPairs.length;
+                const completedPairs = Object.keys(allPairEvaluations).filter(pairId => {
+                    const evaluation = allPairEvaluations[pairId];
+                    return evaluation.completionStatus.clutter && evaluation.completionStatus.cognitive_load && 
+                           evaluation.completionStatus.interpretability && evaluation.completionStatus.style;
+                }).length;
+                
+                counter.innerHTML = `
+                    <span>Pair ${currentPairIndex + 1} of ${totalPairs}</span>
+                    <small style="color: #6c757d; font-size: 11px; display: block;">Completed: ${completedPairs}/${totalPairs}</small>
+                `;
+                
+                // Update counter styling based on completion
+                if (completedPairs === totalPairs && totalPairs > 0) {
+                    counter.style.background = '#d4edda';
+                    counter.style.borderColor = '#28a745';
+                    counter.style.color = '#155724';
+                }
             }
         }
 
