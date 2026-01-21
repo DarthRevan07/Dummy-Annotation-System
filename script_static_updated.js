@@ -684,8 +684,8 @@ function showCompletionButton() {
                     font-weight: 700;
                     font-size: 16px;
                     transition: all 0.3s ease;
-                    min-width: 200px;
-                ">📋 Submit All & Return to Welcome</button>
+                    min-width: 180px;
+                ">📋 Submit All Data</button>
                 <button onclick="exportAllPairEvaluations()" style="
                     background: rgba(255,255,255,0.2);
                     color: white;
@@ -698,6 +698,18 @@ function showCompletionButton() {
                     transition: all 0.3s ease;
                     min-width: 150px;
                 ">💾 Export Results</button>
+                <button onclick="goToHomePage()" style="
+                    background: #ffc107;
+                    color: #212529;
+                    border: none;
+                    padding: 12px 25px;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    font-size: 16px;
+                    transition: all 0.3s ease;
+                    min-width: 150px;
+                ">🏠 Go to Home</button>
             </div>
         `;
         
@@ -705,19 +717,18 @@ function showCompletionButton() {
     }
 }
 
-// Final submission and return to welcome
+// Final submission (no automatic redirect)
 function finalSubmitAndReturn() {
     const totalEvaluations = Object.keys(allPairEvaluations).length;
-    const result = confirm(`Submit all ${totalEvaluations} pair evaluations and return to welcome page?`);
+    const result = confirm(`Submit all ${totalEvaluations} pair evaluations?`);
     
     if (result) {
         // Try to submit to backend
         submitAllEvaluationsToBackend();
         
-        // Show success message and redirect
+        // Show success message only
         setTimeout(() => {
-            alert('All evaluations submitted successfully! Returning to welcome page.');
-            window.location.href = 'index.html';
+            alert('All evaluations submitted successfully!');
         }, 1000);
     }
 }
@@ -911,12 +922,9 @@ function submitCompleteEvaluation() {
         
         alert(message);
         
-        // Optionally move to next pair if available
+        // Note: Removed automatic navigation to prevent interference with data submission
         if (nextPairAvailable) {
-            const moveToNext = confirm('Would you like to move to the next pair for evaluation?');
-            if (moveToNext && typeof navigatePair !== 'undefined') {
-                navigatePair(1);
-            }
+            console.log('Next pair available - user can manually navigate if desired');
         }
     }).catch(error => {
         console.error('Submission failed:', error);
@@ -1151,3 +1159,11 @@ document.addEventListener('keydown', function(event) {
         showCategory('style');
     }
 });
+
+// Navigate to home page
+function goToHomePage() {
+    const result = confirm('Are you sure you want to return to the home page? Make sure you have submitted all your evaluations first.');
+    if (result) {
+        window.location.href = 'index.html';
+    }
+}
