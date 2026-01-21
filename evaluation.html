@@ -1082,11 +1082,28 @@
             }
         }
 
-        // Initialize when DOM is ready
+        // Initialize when DOM is ready - but only if accessed via proper navigation
+        function conditionalInitialize() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasDatasetParam = urlParams.get('dataset');
+            const hasQuestionParam = urlParams.get('question');
+            const referrer = document.referrer;
+            
+            // Only auto-initialize if we have proper URL parameters or came from dataset selector
+            if (hasDatasetParam || hasQuestionParam || referrer.includes('dataset_selector.html')) {
+                console.log('Valid navigation detected, initializing pairs...');
+                initializeIntegratedPairs();
+            } else {
+                console.log('Direct access detected, redirecting to welcome page...');
+                // Redirect to welcome page for proper navigation flow
+                window.location.href = 'index.html';
+            }
+        }
+        
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeIntegratedPairs);
+            document.addEventListener('DOMContentLoaded', conditionalInitialize);
         } else {
-            initializeIntegratedPairs();
+            conditionalInitialize();
         }
     </script>
 </body>
