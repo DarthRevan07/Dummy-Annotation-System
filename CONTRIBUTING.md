@@ -23,6 +23,7 @@ Place at least 2 chart images in each pair folder:
 ### 4. Update Configuration (if adding new dataset)
 Edit `pair_processor.js`:
 ```javascript
+// In the scanAllPairs() method, add to the tableDirectories array:
 const tableDirectories = [
     'ATP_rendered_charts', 
     'fifa18_rendered_charts', 
@@ -30,6 +31,7 @@ const tableDirectories = [
     'your_dataset_name'  // Add here
 ];
 
+// In the getSummaryDirectories() method, add to the tableStructure object:
 const tableStructure = {
     'ATP_rendered_charts': ['sum1_ques3', 'sum3_ques2'],
     'fifa18_rendered_charts': ['sum1_ques1', 'sum1_ques2', 'sum3_ques1', 'sum3_ques2'],

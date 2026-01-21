@@ -183,7 +183,7 @@ To add your own custom dataset:
    Open `pair_processor.js` and add your dataset to the configuration:
    
    ```javascript
-   // Around line 29-30
+   // In the scanAllPairs() method, add your dataset to the tableDirectories array:
    const tableDirectories = [
        'ATP_rendered_charts', 
        'fifa18_rendered_charts', 
@@ -191,7 +191,7 @@ To add your own custom dataset:
        'your_dataset_name'  // Add your dataset here
    ];
    
-   // Around line 56-60
+   // In the getSummaryDirectories() method, add your dataset to the tableStructure object:
    const tableStructure = {
        'ATP_rendered_charts': ['sum1_ques3', 'sum3_ques2'],
        'fifa18_rendered_charts': ['sum1_ques1', 'sum1_ques2', 'sum3_ques1', 'sum3_ques2'],
